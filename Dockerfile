@@ -33,6 +33,7 @@ RUN bun install --frozen-lockfile --production
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/drizzle ./drizzle
 COPY --from=builder /app/client/public ./client/public
+COPY --from=builder /app/shared ./shared
 
 # Create non-root user for security (use UID 9999 to avoid conflicts)
 RUN useradd -m -u 9999 appuser || true && chown -R appuser:appuser /app
@@ -40,10 +41,10 @@ USER appuser
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD bun run --eval "fetch('http://localhost:3000').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))" || exit 1
+  CMD bun run --eval "fetch('http://localhost:8082').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))" || exit 1
 
 # Expose port
-EXPOSE 3000
+EXPOSE 8082
 
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
