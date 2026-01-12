@@ -1,6 +1,6 @@
 import { eq, and } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, courses, studentProgress, exams, examQuestions, courseDocuments, chatMessages, emailVerificationCodes } from "../drizzle/schema";
+import { InsertUser, users, courses, studentProgress, exams, examQuestions, courseDocuments, chatMessages, emailVerificationCodes, aiPrompts, ragDocuments, courseAssignments } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -248,4 +248,166 @@ export async function deleteVerificationCode(id: number) {
   if (!db) return undefined;
 
   return await db.delete(emailVerificationCodes).where(eq(emailVerificationCodes.id, id));
+}
+
+
+// Email-based authentication queries
+export async function getUserByEmail(email: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function createUserByEmail(email: string, role: "user" | "admin" = "user") {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const openId = `email-${email}-${Date.now()}`;
+  const result = await db.insert(users).values({
+    openId,
+    email,
+    loginMethod: "email",
+    role,
+    lastSignedIn: new Date(),
+  });
+
+  const newUser = await getUserByEmail(email);
+  if (!newUser) throw new Error("Failed to create user");
+  return newUser;
+}
+
+export async function storeVerificationCode(email: string, code: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Code expires in 10 minutes
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  
+  return await db.insert(emailVerificationCodes).values({
+    email,
+    code,
+    expiresAt,
+  });
+}
+
+export async function verifyCode(email: string, code: string) {
+  const db = await getDb();
+  if (!db) return false;
+
+  const result = await db.select().from(emailVerificationCodes).where(
+    and(eq(emailVerificationCodes.email, email), eq(emailVerificationCodes.code, code))
+  ).limit(1);
+
+  if (result.length === 0) return false;
+
+  const record = result[0];
+  
+  // Check if code is expired
+  if (new Date() > record.expiresAt) {
+    // Delete expired code
+    await db.delete(emailVerificationCodes).where(eq(emailVerificationCodes.id, record.id));
+    return false;
+  }
+
+  // Delete used code
+  await db.delete(emailVerificationCodes).where(eq(emailVerificationCodes.id, record.id));
+  
+  return true;
+}
+
+
+// AI Prompts queries
+export async function getAIPromptByCourse(courseId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db.select().from(aiPrompts).where(eq(aiPrompts.courseId, courseId)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function createOrUpdateAIPrompt(courseId: number, data: Partial<typeof aiPrompts.$inferInsert>) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const existing = await getAIPromptByCourse(courseId);
+  
+  if (existing) {
+    return await db.update(aiPrompts).set(data).where(eq(aiPrompts.courseId, courseId));
+  } else {
+    return await db.insert(aiPrompts).values({
+      courseId,
+      systemPrompt: data.systemPrompt || "Eres un asistente educativo útil.",
+      ...data,
+    });
+  }
+}
+
+// RAG Documents queries
+export async function getRagDocumentsByCourse(courseId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db.select().from(ragDocuments).where(eq(ragDocuments.courseId, courseId));
+}
+
+export async function createRagDocument(doc: typeof ragDocuments.$inferInsert) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  return await db.insert(ragDocuments).values(doc);
+}
+
+export async function deleteRagDocument(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  return await db.delete(ragDocuments).where(eq(ragDocuments.id, id));
+}
+
+// Course Assignments queries
+export async function assignStudentToCourse(courseId: number, userId: number, assignedBy: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  return await db.insert(courseAssignments).values({
+    courseId,
+    userId,
+    assignedBy,
+  });
+}
+
+export async function getStudentCourseAssignments(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db.select().from(courseAssignments).where(eq(courseAssignments.userId, userId));
+}
+
+export async function getCourseStudents(courseId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db.select().from(courseAssignments).where(eq(courseAssignments.courseId, courseId));
+}
+
+export async function removeStudentFromCourse(courseId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  return await db.delete(courseAssignments).where(
+    and(eq(courseAssignments.courseId, courseId), eq(courseAssignments.userId, userId))
+  );
+}
+
+export async function isStudentAssignedToCourse(courseId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return false;
+
+  const result = await db.select().from(courseAssignments).where(
+    and(eq(courseAssignments.courseId, courseId), eq(courseAssignments.userId, userId))
+  ).limit(1);
+
+  return result.length > 0;
 }

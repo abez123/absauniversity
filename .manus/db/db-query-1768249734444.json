@@ -1,0 +1,9 @@
+{
+  "query": "DROP TABLE IF EXISTS chatMessages;\nDROP TABLE IF EXISTS examResponses;\nDROP TABLE IF EXISTS studentProgress;\nDROP TABLE IF EXISTS examQuestions;\nDROP TABLE IF EXISTS exams;\nDROP TABLE IF EXISTS courseDocuments;\nDROP TABLE IF EXISTS courses;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user dXRdf4NouRQx4WZ.root --database 2nQbD9W2MdTZnTtDhFGu6T --execute DROP TABLE IF EXISTS chatMessages;\nDROP TABLE IF EXISTS examResponses;\nDROP TABLE IF EXISTS studentProgress;\nDROP TABLE IF EXISTS examQuestions;\nDROP TABLE IF EXISTS exams;\nDROP TABLE IF EXISTS courseDocuments;\nDROP TABLE IF EXISTS courses;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 2005
+}

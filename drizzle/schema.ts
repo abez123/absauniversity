@@ -161,3 +161,53 @@ export const emailVerificationCodes = mysqlTable("emailVerificationCodes", {
 
 export type EmailVerificationCode = typeof emailVerificationCodes.$inferSelect;
 export type InsertEmailVerificationCode = typeof emailVerificationCodes.$inferInsert;
+
+/**
+ * AI Prompts table - Stores system prompts for AI agents per course
+ */
+export const aiPrompts = mysqlTable("aiPrompts", {
+  id: int("id").autoincrement().primaryKey(),
+  courseId: int("courseId").notNull(),
+  systemPrompt: text("systemPrompt").notNull(),
+  temperature: decimal("temperature", { precision: 3, scale: 2 }).default("0.7"),
+  maxTokens: int("maxTokens").default(2000),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type AIPrompt = typeof aiPrompts.$inferSelect;
+export type InsertAIPrompt = typeof aiPrompts.$inferInsert;
+
+/**
+ * RAG Documents table - Stores document vectors for Qdrant RAG
+ */
+export const ragDocuments = mysqlTable("ragDocuments", {
+  id: int("id").autoincrement().primaryKey(),
+  courseId: int("courseId").notNull(),
+  documentId: varchar("documentId", { length: 255 }).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  content: text("content").notNull(),
+  qdrantVectorId: varchar("qdrantVectorId", { length: 255 }),
+  mimeType: varchar("mimeType", { length: 100 }),
+  fileUrl: varchar("fileUrl", { length: 512 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type RAGDocument = typeof ragDocuments.$inferSelect;
+export type InsertRAGDocument = typeof ragDocuments.$inferInsert;
+
+/**
+ * Course assignments table - Assigns students to courses
+ */
+export const courseAssignments = mysqlTable("courseAssignments", {
+  id: int("id").autoincrement().primaryKey(),
+  courseId: int("courseId").notNull(),
+  userId: int("userId").notNull(),
+  assignedBy: int("assignedBy").notNull(),
+  assignedAt: timestamp("assignedAt").defaultNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type CourseAssignment = typeof courseAssignments.$inferSelect;
+export type InsertCourseAssignment = typeof courseAssignments.$inferInsert;

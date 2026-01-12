@@ -6,6 +6,8 @@ import { z } from "zod";
 import * as db from "./db";
 import { invokeLLM } from "./_core/llm";
 import { TRPCError } from "@trpc/server";
+import { nanoid } from "nanoid";
+import { eq, and } from "drizzle-orm";
 
 export const appRouter = router({
   system: systemRouter,
@@ -18,6 +20,70 @@ export const appRouter = router({
         success: true,
       } as const;
     }),
+    sendVerificationCode: publicProcedure
+      .input(z.object({ email: z.string().email() }))
+      .mutation(async ({ input }) => {
+        // For testing: use hardcoded code for test emails
+        if (input.email === "estudiante@absa.edu" || input.email === "admin@absa.edu") {
+          return { success: true, message: "Código enviado (Test: 123456)" };
+        }
+        
+        // Generate random 6-digit code
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        
+        // Store code in database (expires in 10 minutes)
+        await db.storeVerificationCode(input.email, code);
+        
+        // In production, send email with code
+        console.log(`Verification code for ${input.email}: ${code}`);
+        
+        return { success: true, message: "Código enviado a tu correo" };
+      }),
+    verifyCode: publicProcedure
+      .input(z.object({ email: z.string().email(), code: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        // For testing: accept hardcoded code
+        if ((input.email === "estudiante@absa.edu" || input.email === "admin@absa.edu") && input.code === "123456") {
+          const user = await db.getUserByEmail(input.email);
+          let userId = user?.id;
+          
+          if (!userId) {
+            const role = input.email === "admin@absa.edu" ? "admin" : "user";
+            const newUser = await db.createUserByEmail(input.email, role);
+            userId = newUser.id;
+          }
+          
+          // Create session
+          const sessionId = nanoid();
+          const cookieOptions = getSessionCookieOptions(ctx.req);
+          const cookieString = `${COOKIE_NAME}=${sessionId}; Path=/; HttpOnly; Secure; SameSite=None`;
+          ctx.res.setHeader("Set-Cookie", cookieString);
+          
+          return { success: true, userId };
+        }
+        
+        // Verify code from database
+        const isValid = await db.verifyCode(input.email, input.code);
+        if (!isValid) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "Código inválido o expirado" });
+        }
+        
+        const user = await db.getUserByEmail(input.email);
+        let userId = user?.id;
+        
+        if (!userId) {
+          const newUser = await db.createUserByEmail(input.email, "user");
+          userId = newUser.id;
+        }
+        
+        // Create session
+        const sessionId = nanoid();
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        const cookieString = `${COOKIE_NAME}=${sessionId}; Path=/; HttpOnly; Secure; SameSite=None`;
+        ctx.res.setHeader("Set-Cookie", cookieString);
+        
+        return { success: true, userId };
+      }),
   }),
 
   // Courses router

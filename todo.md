@@ -96,3 +96,39 @@
 - [ ] Integración con sistemas de pago
 - [ ] Soporte multiidioma
 - [ ] Accesibilidad mejorada
+
+
+## Cambios Solicitados - Autenticación por Correo
+- [x] Crear página de login con solo correo (sin contraseña)
+- [x] Implementar envío de código de verificación
+- [x] Crear página de verificación de código
+- [x] Agregar códigos de prueba para testing
+- [x] Crear tabla de códigos de verificación en BD
+- [x] Implementar procedimientos tRPC para login
+- [x] Crear tests para autenticación por correo
+
+
+## Docker y Dokploy - Deploy en VPS
+- [x] Crear Dockerfile para producción
+- [x] Crear docker-compose.yml para desarrollo local
+- [x] Crear .dockerignore
+- [x] Crear dokploy.yml con variables de entorno
+- [x] Crear script de inicialización de BD
+- [x] Documentación de deploy en Dokploy
+
+
+## Mejoras Solicitadas - Fase 2
+- [x] Logo ABSA permanente en todas las páginas (Header.tsx)
+- [x] Sistema de transcripción de video con IA o paste manual (VideoTranscriptEditor.tsx)
+- [x] Eliminar sistema de enroll - Crear courseAssignments table
+- [x] CRUD de estudiantes en admin panel (StudentManagement.tsx)
+- [x] Asignación de estudiantes a cursos en admin
+- [x] Upload de documentos por curso (ragDocuments table)
+- [x] Sistema de prompts para configurar agentes de IA (AIPromptEditor.tsx)
+- [x] Integración de Qdrant para RAG (qdrant.ts)
+- [x] Actualizar esquema de BD para nuevas tablas
+- [ ] Crear procedimientos tRPC para nuevas funcionalidades
+- [ ] Tests para nuevas características
+- [ ] Integrar Header en todas las páginas
+- [ ] Crear endpoints de API para admin
+- [ ] Implementar generación de embeddings

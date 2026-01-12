@@ -1,0 +1,24 @@
+{
+  "query": "INSERT INTO users (openId, name, email, loginMethod, role, createdAt, updatedAt, lastSignedIn)\nVALUES ('test-student-001', 'Estudiante de Prueba', 'estudiante@absa.edu', 'test', 'user', NOW(), NOW(), NOW())\nON DUPLICATE KEY UPDATE lastSignedIn = NOW();\n\nINSERT INTO users (openId, name, email, loginMethod, role, createdAt, updatedAt, lastSignedIn)\nVALUES ('test-admin-001', 'Administrador de Prueba', 'admin@absa.edu', 'test', 'admin', NOW(), NOW(), NOW())\nON DUPLICATE KEY UPDATE lastSignedIn = NOW();\n\nSELECT id, openId, name, email, role FROM users WHERE loginMethod = 'test';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user dXRdf4NouRQx4WZ.root --database 2nQbD9W2MdTZnTtDhFGu6T --execute INSERT INTO users (openId, name, email, loginMethod, role, createdAt, updatedAt, lastSignedIn)\nVALUES ('test-student-001', 'Estudiante de Prueba', 'estudiante@absa.edu', 'test', 'user', NOW(), NOW(), NOW())\nON DUPLICATE KEY UPDATE lastSignedIn = NOW();\n\nINSERT INTO users (openId, name, email, loginMethod, role, createdAt, updatedAt, lastSignedIn)\nVALUES ('test-admin-001', 'Administrador de Prueba', 'admin@absa.edu', 'test', 'admin', NOW(), NOW(), NOW())\nON DUPLICATE KEY UPDATE lastSignedIn = NOW();\n\nSELECT id, openId, name, email, role FROM users WHERE loginMethod = 'test';",
+  "rows": [
+    {
+      "id": "5",
+      "openId": "test-student-001",
+      "name": "Estudiante de Prueba",
+      "email": "estudiante@absa.edu",
+      "role": "user"
+    },
+    {
+      "id": "6",
+      "openId": "test-admin-001",
+      "name": "Administrador de Prueba",
+      "email": "admin@absa.edu",
+      "role": "admin"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\topenId\tname\temail\trole\n5\ttest-student-001\tEstudiante de Prueba\testudiante@absa.edu\tuser\n6\ttest-admin-001\tAdministrador de Prueba\tadmin@absa.edu\tadmin\n",
+  "stderr": "",
+  "execution_time_ms": 550
+}
