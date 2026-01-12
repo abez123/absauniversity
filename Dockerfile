@@ -34,8 +34,8 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/drizzle ./drizzle
 COPY --from=builder /app/client/public ./client/public
 
-# Create non-root user for security
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+# Create non-root user for security (use UID 9999 to avoid conflicts)
+RUN useradd -m -u 9999 appuser || true && chown -R appuser:appuser /app
 USER appuser
 
 # Health check
