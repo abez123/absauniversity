@@ -1,0 +1,242 @@
+version: '3.8'
+
+services:
+  # ============================================
+  # BASE DE DATOS - MySQL
+  # ============================================
+  db:
+    image: mysql:8.0
+    container_name: absa-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-absa_root_secure_password_change_me}
+      MYSQL_DATABASE: ${DB_NAME:-absa_lms}
+      MYSQL_USER: ${DB_USER:-absa_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-absa_user_secure_password_change_me}
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - absa-network
+
+  # ============================================
+  # APLICACIÓN PRINCIPAL
+  # ============================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: absa-app
+    restart: always
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: mysql://${DB_USER:-absa_user}:${DB_PASSWORD:-absa_user_secure_password_change_me}@db:3306/${DB_NAME:-absa_lms}
+      JWT_SECRET: ${JWT_SECRET:-your_jwt_secret_key_change_this_in_production}
+      VITE_APP_TITLE: ${VITE_APP_TITLE:-ABSA UNIVERSITY}
+      VITE_APP_LOGO: ${VITE_APP_LOGO:-/logo-absa.png}
+      
+      # LLM Configuration
+      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-mistral}
+      
+      # Embeddings Configuration
+      EMBEDDINGS_PROVIDER: ${EMBEDDINGS_PROVIDER:-ollama}
+      OLLAMA_EMBEDDINGS_MODEL: ${OLLAMA_EMBEDDINGS_MODEL:-nomic-embed-text}
+      
+      # Qdrant Configuration
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-}
+      
+      # Storage Configuration (MinIO)
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-minio}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_BUCKET: ${MINIO_BUCKET:-absa-lms}
+      
+      # Email Configuration (Mailhog)
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-mailhog}
+      MAILHOG_SMTP_HOST: ${MAILHOG_SMTP_HOST:-mailhog}
+      MAILHOG_SMTP_PORT: ${MAILHOG_SMTP_PORT:-1025}
+      MAILHOG_FROM_EMAIL: ${MAILHOG_FROM_EMAIL:-noreply@university.grupoabsa.ai}
+    ports:
+      - "${APP_PORT:-8082}:8082"
+    depends_on:
+      db:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+      qdrant:
+        condition: service_started
+      minio:
+        condition: service_started
+    networks:
+      - absa-network
+    labels:
+      - "com.example.description=ABSA University LMS"
+
+  # ============================================
+  # LLM - Ollama (Local AI Model)
+  # ============================================
+  ollama:
+    image: ollama/ollama:latest
+    container_name: absa-ollama
+    restart: always
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - absa-network
+    # Nota: Primera vez tardará en descargar el modelo
+    # Ejecuta: docker exec absa-ollama ollama pull mistral
+
+  # ============================================
+  # VECTOR DATABASE - Qdrant
+  # ============================================
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: absa-qdrant
+    restart: always
+    environment:
+      - QDRANT_API_KEY=${QDRANT_API_KEY:-}
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - absa-network
+
+  # ============================================
+  # OBJECT STORAGE - MinIO (S3 Compatible)
+  # ============================================
+  minio:
+    image: minio/minio:latest
+    container_name: absa-minio
+    restart: always
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/minio_data
+    command: minio server /minio_data --console-address ":9001"
+    networks:
+      - absa-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # ============================================
+  # EMAIL - Mailhog (Local Email Testing)
+  # ============================================
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: absa-mailhog
+    restart: always
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    networks:
+      - absa-network
+    # Accede a: http://localhost:8025 para ver emails
+
+  # ============================================
+  # REDIS (Opcional - para caché)
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: absa-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - absa-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # NGINX - Reverse Proxy (Opcional)
+  # ============================================
+  nginx:
+    image: nginx:alpine
+    container_name: absa-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - app
+    networks:
+      - absa-network
+
+# ============================================
+# VOLÚMENES
+# ============================================
+volumes:
+  mysql_data:
+    driver: local
+  ollama_data:
+    driver: local
+  qdrant_data:
+    driver: local
+  minio_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# ============================================
+# REDES
+# ============================================
+networks:
+  absa-network:
+    driver: bridge
+
+# ============================================
+# INSTRUCCIONES DE USO
+# ============================================
+# 1. Copia .env.dokploy.self-hosted a .env
+# 2. Ejecuta: docker-compose -f docker-compose.self-hosted.yml up -d
+# 3. Espera a que todos los servicios estén listos (2-3 minutos)
+# 4. Descarga modelo Ollama: docker exec absa-ollama ollama pull mistral
+# 5. Crea bucket MinIO: docker exec absa-minio mc mb minio/absa-lms
+# 6. Accede a la app: http://localhost:8082
+# 7. Accede a Mailhog: http://localhost:8025
+# 8. Accede a MinIO: http://localhost:9001 (user: minioadmin, pass: minioadmin)
+# 9. Accede a Qdrant: http://localhost:6333/docs
+
+# ============================================
+# PUERTOS UTILIZADOS
+# ============================================
+# 8082 - Aplicación ABSA
+# 3306 - MySQL
+# 11434 - Ollama
+# 6333 - Qdrant
+# 9000 - MinIO API
+# 9001 - MinIO Console
+# 1025 - Mailhog SMTP
+# 8025 - Mailhog Web
+# 6379 - Redis
+# 80/443 - Nginx
