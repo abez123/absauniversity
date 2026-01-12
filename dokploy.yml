@@ -12,7 +12,7 @@ services:
     
     # Port configuration
     ports:
-      - "8080:8080"
+      - "8082:8082"
     
     # Environment variables - Use ${} syntax for Dokploy
     environment:
@@ -91,7 +91,7 @@ volumes:
 # Dokploy will handle SSL automatically if configured
 ingress:
   - domain: ${APP_DOMAIN}
-    port: 8080
+    port: 8082
     ssl: true  # Enable SSL/HTTPS
 
 # Deployment hooks
