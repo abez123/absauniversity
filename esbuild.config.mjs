@@ -50,10 +50,14 @@ const aliasPlugin = {
 esbuild.build({
   entryPoints: ['server/_core/index.ts'],
   bundle: true,
+  minify: true,
   platform: 'node',
   format: 'esm',
+  target: 'node18',
   outdir: 'dist',
+  sourcemap: false,
   packages: 'external',
+  conditions: ['node'],
   plugins: [aliasPlugin],
   external: [
     'mysql2',
@@ -63,8 +67,12 @@ esbuild.build({
     '@trpc/client',
     'react',
     'react-dom',
+    'vite',
   ],
   logLevel: 'info',
+  define: {
+    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
+  },
 }).catch((err) => {
   console.error('Build failed:', err);
   process.exit(1);
