@@ -5,12 +5,29 @@
   "license": "MIT",
   "scripts": {
     "dev": "NODE_ENV=development tsx watch server/_core/index.ts",
-    "build": "vite build && esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
+    "dev:debug": "NODE_ENV=development tsx --inspect-brk server/_core/index.ts",
+    "build": "vite build && node esbuild.config.mjs && cp -r shared dist/",
+    "build:prod": "NODE_ENV=production bun run build",
+    "build:docker": "bun run build:prod && bun run check",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc --noEmit",
+    "check:watch": "tsc --watch --noEmit",
     "format": "prettier --write .",
+    "lint": "tsc --noEmit",
+    "lint:fix": "prettier --write . && tsc --noEmit",
     "test": "vitest run",
-    "db:push": "drizzle-kit generate && drizzle-kit migrate"
+    "test:build": "npm run build && npm run start",
+    "test:all": "npm run check && npm run test && npm run test:build",
+    "db:push": "drizzle-kit generate && drizzle-kit migrate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "clean": "rm -rf dist node_modules .next",
+    "prebuild": "rm -rf dist",
+    "docker:build": "docker build -t absa-lms:latest .",
+    "docker:run": "docker run -p 8082:8082 absa-lms:latest",
+    "docker:compose": "docker-compose -f docker-compose.self-hosted.yml up -d",
+    "docker:logs": "docker-compose -f docker-compose.self-hosted.yml logs -f",
+    "docker:down": "docker-compose -f docker-compose.self-hosted.yml down"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
@@ -105,6 +122,13 @@
     "vitest": "^2.1.4"
   },
   "packageManager": "pnpm@10.4.1+sha512.c753b6c3ad7afa13af388fa6d808035a008e30ea9993f58c6663e2bc5ff21679aa834db094987129aa4d488b86df57f7b634981b2f827cdcacc698cc0cfb88af",
+  "engines": {
+    "node": ">=18.0.0",
+    "bun": ">=1.0.0"
+  },
+  "bun": {
+    "preinstall": "npm install -g pnpm"
+  },
   "pnpm": {
     "patchedDependencies": {
       "wouter@3.7.1": "patches/wouter@3.7.1.patch"
