@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
+import { trpc } from "@/lib/trpc";
 
 interface AIPromptEditorProps {
   courseId: number;
@@ -14,32 +15,33 @@ interface AIPromptEditorProps {
 }
 
 export function AIPromptEditor({ courseId, onSave }: AIPromptEditorProps) {
-  const [systemPrompt, setSystemPrompt] = useState("");
-  const [temperature, setTemperature] = useState(0.7);
-  const [maxTokens, setMaxTokens] = useState(2000);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  // Local state
+  const [systemPrompt, setSystemPrompt] = React.useState("");
+  const [temperature, setTemperature] = React.useState(0.7);
+  const [maxTokens, setMaxTokens] = React.useState(2000);
 
+  // tRPC queries and mutations
+  const promptQuery = trpc.aiPrompts.get.useQuery({ courseId });
+
+  const createMutation = trpc.aiPrompts.create.useMutation({
+    onSuccess: () => {
+      toast.success("Prompt guardado exitosamente");
+      promptQuery.refetch();
+      onSave?.();
+    },
+    onError: (error) => {
+      toast.error(error.message || "Error al guardar el prompt");
+    },
+  });
+
+  // Initialize from query data
   useEffect(() => {
-    loadPrompt();
-  }, [courseId]);
-
-  const loadPrompt = async () => {
-    try {
-      setIsLoading(true);
-      const response = await fetch(`/api/admin/prompts/${courseId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setSystemPrompt(data.systemPrompt);
-        setTemperature(data.temperature);
-        setMaxTokens(data.maxTokens);
-      }
-    } catch (error) {
-      console.error("Error loading prompt:", error);
-    } finally {
-      setIsLoading(false);
+    if (promptQuery.data) {
+      setSystemPrompt(promptQuery.data.systemPrompt || "");
+      setTemperature(parseFloat(promptQuery.data.temperature || "0.7"));
+      setMaxTokens(promptQuery.data.maxTokens || 2000);
     }
-  };
+  }, [promptQuery.data]);
 
   const handleSave = async () => {
     if (!systemPrompt.trim()) {
@@ -47,30 +49,16 @@ export function AIPromptEditor({ courseId, onSave }: AIPromptEditorProps) {
       return;
     }
 
-    setIsSaving(true);
-    try {
-      const response = await fetch("/api/admin/prompts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          courseId,
-          systemPrompt,
-          temperature,
-          maxTokens,
-        }),
-      });
-
-      if (!response.ok) throw new Error("Error al guardar prompt");
-
-      toast.success("Prompt guardado exitosamente");
-      onSave?.();
-    } catch (error) {
-      toast.error("Error al guardar el prompt");
-      console.error(error);
-    } finally {
-      setIsSaving(false);
-    }
+    createMutation.mutate({
+      courseId,
+      systemPrompt,
+      temperature,
+      maxTokens,
+    });
   };
+
+  const isLoading = promptQuery.isLoading;
+  const isSaving = createMutation.isPending;
 
   if (isLoading) {
     return (

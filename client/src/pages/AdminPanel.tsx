@@ -6,11 +6,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
-import { Loader2, Plus, Edit2, Trash2, ArrowLeft } from "lucide-react";
+import { Loader2, Plus, Edit2, Trash2, ArrowLeft, Settings } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { RAGDocumentUploader } from "@/components/RAGDocumentUploader";
+import { AIPromptEditor } from "@/components/AIPromptEditor";
 
 /**
  * Admin panel - Manage courses, exams, and documents
@@ -22,6 +25,8 @@ export default function AdminPanel() {
   const [showCreateCourse, setShowCreateCourse] = useState(false);
   const [showCreateExam, setShowCreateExam] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<number | null>(null);
+  const [showCourseSettings, setShowCourseSettings] = useState(false);
+  const [settingsCourseId, setSettingsCourseId] = useState<number | null>(null);
 
   // Form states
   const [courseForm, setCourseForm] = useState({
@@ -264,9 +269,12 @@ export default function AdminPanel() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => setSelectedCourse(course.id)}
+                            onClick={() => {
+                              setSettingsCourseId(course.id);
+                              setShowCourseSettings(true);
+                            }}
                           >
-                            <Edit2 className="w-4 h-4" />
+                            <Settings className="w-4 h-4" />
                           </Button>
                           <Dialog open={showCreateExam && selectedCourse === course.id} onOpenChange={setShowCreateExam}>
                             <DialogTrigger asChild>
@@ -359,6 +367,32 @@ export default function AdminPanel() {
           </div>
         </div>
       </main>
+
+      {/* Course Settings Dialog */}
+      <Dialog open={showCourseSettings} onOpenChange={setShowCourseSettings}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Course Settings</DialogTitle>
+            <DialogDescription>
+              Manage RAG documents and AI prompts for this course
+            </DialogDescription>
+          </DialogHeader>
+          {settingsCourseId && (
+            <Tabs defaultValue="rag" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="rag">RAG Documents</TabsTrigger>
+                <TabsTrigger value="ai">AI Prompt</TabsTrigger>
+              </TabsList>
+              <TabsContent value="rag" className="mt-4">
+                <RAGDocumentUploader courseId={settingsCourseId} />
+              </TabsContent>
+              <TabsContent value="ai" className="mt-4">
+                <AIPromptEditor courseId={settingsCourseId} />
+              </TabsContent>
+            </Tabs>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
