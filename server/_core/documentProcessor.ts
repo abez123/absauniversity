@@ -17,8 +17,16 @@ export function chunkDocument(
 
   const chunks: string[] = [];
   let start = 0;
+  let lastStart = -1; // Track last start position to detect infinite loops
 
   while (start < content.length) {
+    // Safety check: prevent infinite loops by ensuring we always advance
+    if (start === lastStart) {
+      console.warn("[DocumentProcessor] Infinite loop detected, forcing advance");
+      start = start + 1;
+    }
+    lastStart = start;
+
     let end = Math.min(start + chunkSize, content.length);
 
     // Try to break at sentence boundary if possible
@@ -27,8 +35,8 @@ export function chunkDocument(
       const lastNewline = content.lastIndexOf("\n", end);
       const breakPoint = Math.max(lastPeriod, lastNewline);
 
-      if (breakPoint > start + chunkSize * 0.5) {
-        // Only use break point if it's not too early
+      // Only use break point if it's not too early and is within the chunk
+      if (breakPoint > start + chunkSize * 0.5 && breakPoint < end) {
         end = breakPoint + 1;
       }
     }
@@ -40,10 +48,18 @@ export function chunkDocument(
 
     // Calculate next start position with overlap
     // Ensure we always advance forward to prevent infinite loops
+    // Use Math.max to guarantee forward progress of at least 1 character
     const nextStart = Math.max(end - overlap, start + 1);
     
-    // If we've reached the end, break
+    // If we've reached or passed the end, break
     if (nextStart >= content.length) {
+      break;
+    }
+    
+    // Additional safety: ensure we're making progress
+    if (nextStart <= start) {
+      console.warn("[DocumentProcessor] No progress detected, forcing advance");
+      start = start + 1;
       break;
     }
     

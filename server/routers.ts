@@ -424,8 +424,9 @@ Help students understand the course content and answer their questions based on 
           systemPrompt: input.systemPrompt,
         };
         if (input.temperature !== undefined) {
-          // Store as decimal string with proper formatting (precision: 3, scale: 2)
-          updateData.temperature = input.temperature.toFixed(2);
+          // Store as number - Drizzle will handle decimal conversion for MySQL
+          // Round to 2 decimal places to match schema precision
+          updateData.temperature = Math.round(input.temperature * 100) / 100;
         }
         if (input.maxTokens !== undefined) {
           updateData.maxTokens = input.maxTokens;
@@ -538,10 +539,18 @@ Help students understand the course content and answer their questions based on 
             });
           }
 
+          // Validate that mainVectorId is not empty
+          const mainVectorId = vectorIds[0];
+          if (!mainVectorId || mainVectorId.trim() === "") {
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: "Failed to process document: invalid vector ID generated",
+            });
+          }
+
           // Store document metadata in database
           // Store the first chunk's content as the main content
           const mainContent = chunks.join("\n\n");
-          const mainVectorId = vectorIds[0]; // Safe: we validated vectorIds.length > 0 above
 
           await db.createRagDocument({
             courseId: input.courseId,
