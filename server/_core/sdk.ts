@@ -30,11 +30,15 @@ const GET_USER_INFO_WITH_JWT_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserI
 
 class OAuthService {
   constructor(private client: ReturnType<typeof axios.create>) {
-    console.log("[OAuth] Initialized with baseURL:", ENV.oAuthServerUrl);
-    if (!ENV.oAuthServerUrl) {
-      console.error(
-        "[OAuth] ERROR: OAUTH_SERVER_URL is not configured! Set OAUTH_SERVER_URL environment variable."
-      );
+    if (process.env.NODE_ENV === "production") {
+      console.log("[OAuth] Disabled in production (self-hosted mode)");
+    } else {
+      console.log("[OAuth] Initialized with baseURL:", ENV.oAuthServerUrl);
+      if (!ENV.oAuthServerUrl) {
+        console.error(
+          "[OAuth] ERROR: OAUTH_SERVER_URL is not configured! Set OAUTH_SERVER_URL environment variable."
+        );
+      }
     }
   }
 
@@ -299,6 +303,11 @@ class SDKServer {
 
     return user;
   }
+}
+
+// En producción self-hosted, crear una instancia dummy de SDK
+if (process.env.NODE_ENV === "production") {
+  console.log("[SDK] Running in self-hosted mode - OAuth SDK disabled");
 }
 
 export const sdk = new SDKServer();
