@@ -1,4 +1,4 @@
-import { COOKIE_NAME } from "@shared/const";
+import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
@@ -12,6 +12,7 @@ import { generateEmbedding } from "./_core/embeddings";
 import { ensureCollection, storeDocumentVector, searchSimilarDocuments, deleteDocumentVector } from "./_core/qdrant";
 import { processDocument } from "./_core/documentProcessor";
 import { storagePut } from "./storage";
+import { sdk } from "./_core/sdk";
 
 export const appRouter = router({
   system: systemRouter,
@@ -49,21 +50,23 @@ export const appRouter = router({
         // For testing: accept hardcoded code
         if ((input.email === "estudiante@absa.edu" || input.email === "admin@absa.edu") && input.code === "123456") {
           const user = await db.getUserByEmail(input.email);
-          let userId = user?.id;
+          let finalUser = user;
           
-          if (!userId) {
+          if (!finalUser) {
             const role = input.email === "admin@absa.edu" ? "admin" : "user";
-            const newUser = await db.createUserByEmail(input.email, role);
-            userId = newUser.id;
+            finalUser = await db.createUserByEmail(input.email, role);
           }
           
-          // Create session
-          const sessionId = nanoid();
-          const cookieOptions = getSessionCookieOptions(ctx.req);
-          const cookieString = `${COOKIE_NAME}=${sessionId}; Path=/; HttpOnly; Secure; SameSite=None`;
-          ctx.res.setHeader("Set-Cookie", cookieString);
+          // Create JWT session token
+          const sessionToken = await sdk.createSessionToken(finalUser.openId, {
+            name: finalUser.name || finalUser.email || "",
+            expiresInMs: ONE_YEAR_MS,
+          });
           
-          return { success: true, userId };
+          const cookieOptions = getSessionCookieOptions(ctx.req);
+          ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+          
+          return { success: true, userId: finalUser.id };
         }
         
         // Verify code from database
@@ -72,21 +75,22 @@ export const appRouter = router({
           throw new TRPCError({ code: "UNAUTHORIZED", message: "Código inválido o expirado" });
         }
         
-        const user = await db.getUserByEmail(input.email);
-        let userId = user?.id;
+        let finalUser = await db.getUserByEmail(input.email);
         
-        if (!userId) {
-          const newUser = await db.createUserByEmail(input.email, "user");
-          userId = newUser.id;
+        if (!finalUser) {
+          finalUser = await db.createUserByEmail(input.email, "user");
         }
         
-        // Create session
-        const sessionId = nanoid();
-        const cookieOptions = getSessionCookieOptions(ctx.req);
-        const cookieString = `${COOKIE_NAME}=${sessionId}; Path=/; HttpOnly; Secure; SameSite=None`;
-        ctx.res.setHeader("Set-Cookie", cookieString);
+        // Create JWT session token
+        const sessionToken = await sdk.createSessionToken(finalUser.openId, {
+          name: finalUser.name || finalUser.email || "",
+          expiresInMs: ONE_YEAR_MS,
+        });
         
-        return { success: true, userId };
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+        
+        return { success: true, userId: finalUser.id };
       }),
   }),
 
