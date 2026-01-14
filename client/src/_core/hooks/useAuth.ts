@@ -9,7 +9,15 @@ type UseAuthOptions = {
 };
 
 export function useAuth(options?: UseAuthOptions) {
-  const { redirectOnUnauthenticated = false, redirectPath = getLoginUrl() } =
+  // Safely get login URL with fallback
+  let defaultRedirectPath = "/login";
+  try {
+    defaultRedirectPath = getLoginUrl();
+  } catch (error) {
+    console.warn("[Auth] Failed to get login URL, using default:", error);
+  }
+  
+  const { redirectOnUnauthenticated = false, redirectPath = defaultRedirectPath } =
     options ?? {};
   const utils = trpc.useUtils();
 
