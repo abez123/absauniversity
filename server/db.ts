@@ -1,18 +1,41 @@
 import { eq, and } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
+import mysql from "mysql2/promise";
 import { InsertUser, users, courses, studentProgress, exams, examQuestions, courseDocuments, chatMessages, emailVerificationCodes, aiPrompts, ragDocuments, courseAssignments } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
+let _connection: mysql.Pool | null = null;
 
 // Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      // Parse DATABASE_URL to create connection pool
+      // Handle both mysql:// and mysql2:// URLs
+      const dbUrl = process.env.DATABASE_URL.replace(/^mysql2:\/\//, "mysql://");
+      const url = new URL(dbUrl);
+      
+      const config: mysql.PoolOptions = {
+        host: url.hostname,
+        port: parseInt(url.port || "3306"),
+        user: decodeURIComponent(url.username),
+        password: decodeURIComponent(url.password || ""),
+        database: url.pathname.slice(1), // Remove leading '/'
+        waitForConnections: true,
+        connectionLimit: 10,
+        queueLimit: 0,
+        enableKeepAlive: true,
+        keepAliveInitialDelay: 0,
+      };
+
+      _connection = mysql.createPool(config);
+      _db = drizzle(_connection);
+      console.log("[Database] Connected successfully to", config.database);
     } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
+      console.error("[Database] Failed to connect:", error);
       _db = null;
+      _connection = null;
     }
   }
   return _db;
@@ -254,10 +277,18 @@ export async function deleteVerificationCode(id: number) {
 // Email-based authentication queries
 export async function getUserByEmail(email: string) {
   const db = await getDb();
-  if (!db) return undefined;
+  if (!db) {
+    console.warn("[Database] Cannot get user by email: database not available");
+    return undefined;
+  }
 
-  const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
-  return result.length > 0 ? result[0] : undefined;
+  try {
+    const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    return result.length > 0 ? result[0] : undefined;
+  } catch (error) {
+    console.error("[Database] Failed to get user by email:", error);
+    throw error;
+  }
 }
 
 export async function createUserByEmail(email: string, role: "user" | "admin" = "user") {
