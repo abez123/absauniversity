@@ -7,6 +7,50 @@ import { ENV } from './_core/env';
 let _db: ReturnType<typeof drizzle> | null = null;
 let _connection: mysql.Pool | null = null;
 
+async function ensureCoreTables(connection: mysql.Pool) {
+  await connection.execute(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      openId VARCHAR(64) NOT NULL,
+      name TEXT,
+      email VARCHAR(320),
+      loginMethod VARCHAR(64),
+      role ENUM('user','admin') NOT NULL DEFAULT 'user',
+      createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      lastSignedIn TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY users_openId_unique (openId)
+    )
+  `);
+
+  await connection.execute(`
+    CREATE TABLE IF NOT EXISTS courses (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      title VARCHAR(255) NOT NULL,
+      description TEXT,
+      instructorId INT NOT NULL,
+      videoUrl VARCHAR(512),
+      videoTranscript TEXT,
+      prerequisites TEXT,
+      startDate TIMESTAMP NULL,
+      endDate TIMESTAMP NULL,
+      isPublished BOOLEAN DEFAULT false,
+      createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
+
+  await connection.execute(`
+    CREATE TABLE IF NOT EXISTS emailVerificationCodes (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      email VARCHAR(320) NOT NULL,
+      code VARCHAR(6) NOT NULL,
+      expiresAt TIMESTAMP NOT NULL,
+      createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+}
+
 // Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
@@ -31,6 +75,7 @@ export async function getDb() {
 
       _connection = mysql.createPool(config);
       _db = drizzle(_connection);
+      await ensureCoreTables(_connection);
       console.log("[Database] Connected successfully to", config.database);
     } catch (error) {
       console.error("[Database] Failed to connect:", error);
