@@ -48,6 +48,12 @@ export default function ExamPage({ params }: ExamPageProps) {
   const handleSubmitExam = async () => {
     if (!examQuery.data || !questionsQuery.data) return;
 
+    // Prevent submission if exam has no questions
+    if (questionsQuery.data.length === 0) {
+      console.error("Cannot submit exam: no questions available");
+      return;
+    }
+
     // Calculate score (simple scoring based on correct answers)
     let correctCount = 0;
     questionsQuery.data.forEach((question) => {
@@ -165,50 +171,68 @@ export default function ExamPage({ params }: ExamPageProps) {
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-6">
-          {questions.map((question, idx) => (
-            <Card key={question.id}>
-              <CardHeader>
-                <CardTitle className="text-lg">
-                  Question {idx + 1} ({question.points} points)
-                </CardTitle>
-                <CardDescription>{question.question}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {question.questionType === "multiple_choice" && question.options ? (
-                  <RadioGroup
-                    value={answers[question.id] || ""}
-                    onValueChange={(value) => handleAnswerChange(question.id, value)}
-                  >
-                    <div className="space-y-3">
-                      {JSON.parse(question.options).map((option: string, idx: number) => (
-                        <div key={idx} className="flex items-center space-x-2">
-                          <RadioGroupItem value={option} id={`q${question.id}-${idx}`} />
-                          <Label htmlFor={`q${question.id}-${idx}`} className="cursor-pointer">
-                            {option}
-                          </Label>
-                        </div>
-                      ))}
-                    </div>
-                  </RadioGroup>
-                ) : (
-                  <Textarea
-                    placeholder="Enter your answer..."
-                    value={answers[question.id] || ""}
-                    onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-                    rows={4}
-                  />
-                )}
+          {questions.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center">
+                <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+                <p className="text-gray-600">This exam has no questions yet.</p>
+                <Button
+                  onClick={() => navigate(`/courses/${courseId}`)}
+                  variant="outline"
+                  className="mt-4"
+                >
+                  Back to Course
+                </Button>
               </CardContent>
             </Card>
-          ))}
+          ) : (
+            <>
+              {questions.map((question, idx) => (
+                <Card key={question.id}>
+                  <CardHeader>
+                    <CardTitle className="text-lg">
+                      Question {idx + 1} ({question.points} points)
+                    </CardTitle>
+                    <CardDescription>{question.question}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {question.questionType === "multiple_choice" && question.options ? (
+                      <RadioGroup
+                        value={answers[question.id] || ""}
+                        onValueChange={(value) => handleAnswerChange(question.id, value)}
+                      >
+                        <div className="space-y-3">
+                          {JSON.parse(question.options).map((option: string, idx: number) => (
+                            <div key={idx} className="flex items-center space-x-2">
+                              <RadioGroupItem value={option} id={`q${question.id}-${idx}`} />
+                              <Label htmlFor={`q${question.id}-${idx}`} className="cursor-pointer">
+                                {option}
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                      </RadioGroup>
+                    ) : (
+                      <Textarea
+                        placeholder="Enter your answer..."
+                        value={answers[question.id] || ""}
+                        onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+                        rows={4}
+                      />
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
 
-          <Button
-            onClick={handleSubmitExam}
-            disabled={markExamTakenMutation.isPending}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 h-12 text-lg"
-          >
-            {markExamTakenMutation.isPending ? "Submitting..." : "Submit Exam"}
-          </Button>
+              <Button
+                onClick={handleSubmitExam}
+                disabled={markExamTakenMutation.isPending}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 h-12 text-lg"
+              >
+                {markExamTakenMutation.isPending ? "Submitting..." : "Submit Exam"}
+              </Button>
+            </>
+          )}
         </div>
       </main>
     </div>
